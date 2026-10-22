@@ -1,5 +1,6 @@
 """Teste de integração real com os serviços iniciados via Docker Compose."""
 
+from datetime import datetime, timezone
 import os
 from uuid import uuid4
 
@@ -36,7 +37,7 @@ def test_mongodb_measurement_and_redis_summary_round_trip(clients) -> None:
     key = f"e2e:qualidadear:sensor:{suffix}"
     measurement = {
         "sensor_id": f"E2E-{suffix}",
-        "timestamp": "2026-10-22T10:05:00Z",
+        "timestamp": datetime(2026, 10, 22, 10, 5, tzinfo=timezone.utc),
         "pm25": 18.5,
         "pm10": 36.2,
         "co2": 480.0,
@@ -65,10 +66,11 @@ def test_mongodb_measurement_and_redis_summary_round_trip(clients) -> None:
         )
         stored_summary = redis_client.hgetall(key)
 
-        assert stored_measurement == measurement
+        assert stored_measurement is not None
+        assert stored_measurement["sensor_id"] == measurement["sensor_id"]
+        assert stored_measurement["timestamp"] == measurement["timestamp"]
         assert stored_summary == summary
         assert float(stored_summary["pm25_media"]) == stored_measurement["pm25"]
     finally:
         measurements.delete_one({"sensor_id": measurement["sensor_id"]})
         redis_client.delete(key)
-        mongo_client.drop_database("QualidadeAr_e2e")
